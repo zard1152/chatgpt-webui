@@ -533,17 +533,32 @@ class BaseLLMModel:
                 search_results = search_with_serper(fake_inputs, serper_search_api_key)
             else:
                 search_results = search_with_duckduckgo(fake_inputs)
+            # reference_results = []
+            # for idx, result in enumerate(search_results):
+            #     # logger.info("search_results, for idx result in ")
+
+            #     logger.info(f"搜索结果{idx + 1}：{result}")
+            #     reference_results.append([result["snippet"], result["url"]]) 
+            #     display_append.append(
+            #         f"<a href=\"{result['url']}\" target=\"_blank\">{idx + 1}.&nbsp;{result['name']}</a>"
+            #     )
+            # reference_results = add_source_numbers(reference_results)
+            # display_append = (
+            #         '<div class = "source-a">' + "".join(display_append) + "</div>"
+            # )
             reference_results = []
             for idx, result in enumerate(search_results):
-                logger.debug(f"搜索结果{idx + 1}：{result}")
-                reference_results.append([result["snippet"], result["url"]])
+                logger.info(f"搜索结果{idx + 1}：{result}")
+                url = result.get("link", "URL not available")  # Using .get() for safety
+                reference_results.append([result["snippet"], url])
                 display_append.append(
-                    f"<a href=\"{result['url']}\" target=\"_blank\">{idx + 1}.&nbsp;{result['name']}</a>"
+                    f"<a href=\"{url}\" target=\"_blank\">{idx + 1}.&nbsp;{result.get('title', 'Unnamed')}</a>"
                 )
             reference_results = add_source_numbers(reference_results)
             display_append = (
-                    '<div class = "source-a">' + "".join(display_append) + "</div>"
+                '<div class = "source-a">' + "".join(display_append) + "</div>"
             )
+
             if type(real_inputs) == list:
                 real_inputs[0]["text"] = (
                     replace_today(WEBSEARCH_PTOMPT_TEMPLATE)
