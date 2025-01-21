@@ -1,0 +1,20 @@
+gradio==3.43.2
+gradio_client==0.5.0
+gradio[oauth]
+socksio
+tqdm
+colorama
+Pygments
+markdown
+pandas
+commentjson
+jinja2
+langchain==0.1.10
+langchain-community==0.0.25
+PyPDF2
+pdfplumber
+jieba
+loguru
+openai==0.28
+unstructured
+#pip install --upgrade pydantic fastapi
