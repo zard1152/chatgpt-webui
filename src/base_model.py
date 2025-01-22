@@ -311,45 +311,171 @@ class BaseLLMModel:
     def count_token(self, user_input):
         """get token count from input, implement if needed"""
         return len(user_input)
-    
 
 
     def stream_next_chatbot(self, inputs, chatbot, fake_input=None, display_append=""):
-        self.history_lock = threading.Lock()  # 用于保护 self.history
-
+        self.history_lock = threading.Lock()
+        
         def get_return_value():
             return chatbot, status_text
-
+        
         status_text = i18n("开始实时传输回答……")
-        if fake_input:
-            chatbot.append((fake_input, ""))
-        else:
-            chatbot.append((inputs, ""))
-
+        
+        # 计算输入token
         user_token_count = self.count_token(inputs)
         self.all_token_counts.append(user_token_count)
         logger.debug(f"输入token计数: {user_token_count}")
+        
+        # 处理display_append
         if display_append:
-            display_append = (
+            if isinstance(display_append, list):
+                display_append = (
+                    '<div class="source-a">' + "".join(display_append) + "</div>"
+                )
+            else:
+                display_append = (
                     '\n\n<hr class="append-display no-in-raw" />' + display_append
-            )
+                )
+        
+        # 新增时间追踪状态
+        time_state = {
+            'last_think_end': None,
+            'current_think_start': None
+        }
 
+        # 处理函数
+        def process_with_time(text_chunk):
+            current_time = time.time()
+            processed = []
+            buffer = text_chunk
+            
+            while True:
+                start_tag = buffer.find('<think>')
+                end_tag = buffer.find('</think>')
+                
+                # 没有更多标签时退出
+                if start_tag == -1 and end_tag == -1:
+                    processed.append(buffer)
+                    break
+                    
+                # 处理思考区块开始
+                if start_tag != -1 and (end_tag == -1 or start_tag < end_tag):
+                    # 计算时间间隔
+                    if time_state['last_think_end'] is not None:
+                        duration = current_time - time_state['last_think_end']
+                        time_state['current_think_start'] = current_time
+                    else:
+                        duration = 0.0  # 第一个思考区块
+                    
+                    # 添加普通文本
+                    processed.append(buffer[:start_tag])
+                    buffer = buffer[start_tag+7:]  # 移除<think>
+                    
+                    # 捕获思考内容
+                    end_pos = buffer.find('</think>')
+                    if end_pos != -1:
+                        content = buffer[:end_pos]
+                        buffer = buffer[end_pos+8:]  # 移除</think>
+                        time_state['last_think_end'] = time.time()
+                        processed.append(
+                            f'<details class="think-fold" data-duration="{duration:.2f}">'
+                            f'<summary>thought for {duration:.2f}s</summary>'
+                            f'<div class="think-content">{content}</div>'
+                            f'</details>'
+                        )
+                    else:
+                        time_state['current_think_start'] = current_time
+                        processed.append('<think>')  # 保持未闭合状态
+                        break
+                        
+                # 处理思考区块结束
+                elif end_tag != -1:
+                    if time_state['current_think_start']:
+                        duration = current_time - time_state['current_think_start']
+                        time_state['last_think_end'] = current_time
+                    else:
+                        duration = 0.0
+                    
+                    content = buffer[:end_tag]
+                    buffer = buffer[end_tag+8:]  # 移除</think>
+                    processed.append(
+                        f'<details class="think-fold" data-duration="{duration:.2f}">'
+                        f'<summary>thought for {duration:.2f}s</summary>'
+                        f'<div class="think-content">{content}</div>'
+                        f'</details>'
+                    )
+            
+            return ''.join(processed)
+
+        # 初始化对话条目
+        chatbot.append((fake_input or inputs, ""))
+        
+        # 流式处理主循环
         partial_text = ""
         token_increment = 1
         
-        for partial_text in self.get_answer_stream_iter():
+        for chunk in self.get_answer_stream_iter():
+            if isinstance(chunk, tuple):
+                chunk, token_increment = chunk
+                
+            processed = process_with_time(chunk)
+            chatbot[-1] = (chatbot[-1][0], processed + display_append)
             
-            if type(partial_text) == tuple:
-                partial_text, token_increment = partial_text
-            chatbot[-1] = (chatbot[-1][0], partial_text + display_append)
+            # 更新token计数
             self.all_token_counts[-1] += token_increment
             status_text = self.token_message()
+            
             yield get_return_value()
+            
             if self.interrupted:
                 self.recover()
                 break
         
-        self.history.append(construct_assistant(partial_text))
+        # 保存历史记录
+        with self.history_lock:
+            self.history.append(construct_assistant(partial_text))
+            
+    # def stream_next_chatbot(self, inputs, chatbot, fake_input=None, display_append=""):
+
+    #     def get_return_value():
+    #         return chatbot, status_text
+
+    #     status_text = i18n("开始实时传输回答……")
+    #     if fake_input:
+    #         chatbot.append((fake_input, ""))
+    #     else:
+    #         chatbot.append((inputs, ""))
+
+    #     user_token_count = self.count_token(inputs)
+    #     self.all_token_counts.append(user_token_count)
+    #     logger.debug(f"输入token计数: {user_token_count}")
+    #     if display_append:
+    #         display_append = (
+    #                 '\n\n<hr class="append-display no-in-raw" />' + display_append
+    #         )
+
+    #     partial_text = ""
+    #     token_increment = 1
+    #     '''
+    
+    #                 display_append = (
+    #             '<div class = "source-a">' + "".join(display_append) + "</div>"
+    #         ) # 下方区域, 添加 url 等内容
+
+    #     '''
+    #     for partial_text in self.get_answer_stream_iter():
+            
+    #         if type(partial_text) == tuple:
+    #             partial_text, token_increment = partial_text
+    #         chatbot[-1] = (chatbot[-1][0], partial_text + display_append)
+    #         self.all_token_counts[-1] += token_increment
+    #         status_text = self.token_message()
+    #         yield get_return_value()
+    #         if self.interrupted:
+    #             self.recover()
+    #             break
+        
+    #     self.history.append(construct_assistant(partial_text))
 
 
 
@@ -548,7 +674,7 @@ class BaseLLMModel:
             # )
             reference_results = []
             for idx, result in enumerate(search_results):
-                logger.info(f"搜索结果{idx + 1}：{result}")
+                logger.debug(f"搜索结果{idx + 1}：{result}")
                 url = result.get("link", "URL not available")  # Using .get() for safety
                 reference_results.append([result["snippet"], url])
                 display_append.append(
@@ -557,7 +683,7 @@ class BaseLLMModel:
             reference_results = add_source_numbers(reference_results)
             display_append = (
                 '<div class = "source-a">' + "".join(display_append) + "</div>"
-            )
+            ) # 下方区域, 添加 url 等内容
 
             if type(real_inputs) == list:
                 real_inputs[0]["text"] = (

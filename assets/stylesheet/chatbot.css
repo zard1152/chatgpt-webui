@@ -6,6 +6,67 @@ hr.append-display {
     border-top-width: 0;
     background-image: linear-gradient(to right, rgba(50,50,50, 0.1), rgba(150, 150, 150, 0.8), rgba(50,50,50, 0.1));
 }
+
+/* Collapsible <think> section */
+.think-fold {
+    margin: 0.8em 0;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #f8f8f8;
+}
+
+.think-fold[open] {
+    background: #fff;
+}
+
+.think-fold summary {
+    cursor: pointer;
+    padding: 0.8em 1em;
+    color: #666;
+    font-size: 0.9em;
+    list-style: none;
+    position: relative;
+}
+
+.think-fold summary::after {
+    content: "▶";
+    position: absolute;
+    right: 1em;
+    transition: transform 0.2s;
+}
+
+.think-fold[open] summary::after {
+    transform: rotate(90deg);
+}
+/* 动态时间颜色 */
+.think-fold[open] summary {
+    color: #4285f4;
+}
+
+
+.think-content p {
+    margin: 0 !important;        /* 消除段落间距 */
+    padding: 0 !important;
+}
+
+
+.think-content {
+    line-height: 1.3;
+    margin: 0;
+    padding: 0.4em 0.8em;
+    font-size: 0.9em;
+}
+
+.think-fold summary {
+    font-family: monospace; /* 等宽字体适合显示时间 */
+    font-size: 0.85em;
+    color: #666;
+    padding: 0.3em 1em;
+}
+
+
+
+
 .source-a {
     font-size: 0.8em;
     max-width: 100%;

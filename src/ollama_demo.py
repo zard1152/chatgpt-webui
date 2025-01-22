@@ -167,6 +167,9 @@ class OllamaAIClient(BaseLLMModel):
             yield STANDARD_ERROR_MSG
             return
 
+    
+        # response = response.split("。")
+        # import time
 
         try:
             prev_partial_text: str = ""
@@ -177,6 +180,7 @@ class OllamaAIClient(BaseLLMModel):
                     logger.warning(f"Unexpected response type: {type(partial_text)}")
                     continue
                 prev_partial_text += partial_text
+                # time.sleep(0.3)
                 yield prev_partial_text
         except Exception as e:
             logger.error(f"Error in get_answer_stream_iter: {str(e)}", exc_info=True)
